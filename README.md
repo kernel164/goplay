@@ -39,7 +39,7 @@ command1:
 
 ```bash
 $ goplay command1
-ansible-playbook --extra-vars /tmp/bar-7adb62018ba6f78b6e53fc4a5760cfec-vars --inventory-file /tmp/bar-7ef0b9f2ff60c1ca61a649fb6fe747e7-inventory --sudo --sudo-user root --tags test --user xyz -vvvv /tmp/bar-760d64134937fa1774ae0ab3f06f47d9-playbook
+ansible-playbook --extra-vars /tmp/goplay-7adb62018ba6f78b6e53fc4a5760cfec-vars --inventory-file /tmp/goplay-7ef0b9f2ff60c1ca61a649fb6fe747e7-inventory --sudo --sudo-user root --tags test --user xyz -vvvv /tmp/goplay-760d64134937fa1774ae0ab3f06f47d9-playbook
 PLAY [all] ******************************************************************** 
 
 GATHERING FACTS *************************************************************** 

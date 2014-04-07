@@ -1,2 +1,3 @@
 script:
-  - go build ./src
+  - go get ./src
+  - go build -o goplay ./src

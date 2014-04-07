@@ -75,7 +75,7 @@ func GetMD5Hash(text string) string {
 
 func newTmpFile(content string, suffix string) string {
 	// fmt.Sprintf("%x", time.Now().UTC().UnixNano())
-	newFile := "/tmp/bar-" + GetMD5Hash(content) + "-" + suffix
+	newFile := "/tmp/goplay-" + GetMD5Hash(content) + "-" + suffix
 	TmpFiles[newFile] = true
 	return newFile
 }
