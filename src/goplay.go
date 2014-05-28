@@ -95,6 +95,7 @@ func main() {
 	app.Usage = "simple ansible-playbook wrapper"
 	app.Version = "0.1.0"
 	app.Author = "kernel164"
+	app.Usage = "goplay [global options] command"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{"file, f", "play.yml", "play file"},
 	}
@@ -105,6 +106,11 @@ func main() {
 		// check config file
 		if _, err := os.Stat(file); os.IsNotExist(err) {
 			fmt.Printf("Can't find %s. Are you in the right directory?\n", file)
+			os.Exit(1)
+		}
+
+		if len(cmd) == 0 {
+			fmt.Printf("default settings not found?\n")
 			os.Exit(1)
 		}
 
@@ -158,13 +164,12 @@ func main() {
 		}
 		// --diff
 		if len(parsedCmdConfig.Var_file) > 0 {
-			args = append(args, "--extra-vars", expandValue(parsedCmdConfig.Var_file))
+			varfiledata, vioerr := ioutil.ReadFile(expandValue(parsedCmdConfig.Var_file))
+			check(vioerr)
+			args = append(args, "--extra-vars", string(varfiledata))
 		} else if len(parsedCmdConfig.Vars) > 0 {
 			expandedVarsContent := expandValue(parsedCmdConfig.Vars)
-			tmpVarsFile := newTmpFile(expandedVarsContent, "vars")
-			iwerr := ioutil.WriteFile(tmpVarsFile, []byte(expandedVarsContent), 0644)
-			check(iwerr)
-			args = append(args, "--extra-vars", tmpVarsFile)
+			args = append(args, "--extra-vars", expandedVarsContent)
 		}
 		if parsedCmdConfig.Forks > 0 {
 			args = append(args, "--forks", string(parsedCmdConfig.Forks))
@@ -244,7 +249,7 @@ func main() {
 			env = append(env, "ANSIBLE_CONFIG="+tmpCfgFile)
 		}
 		exeerr := syscall.Exec(ansible, args, env)
-		check(exeerr)
+		check(exeerr) // not reachable
 	}
 
 	app.Run(os.Args)
