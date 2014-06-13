@@ -93,7 +93,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "goplay"
 	app.Usage = "simple ansible-playbook wrapper"
-	app.Version = "0.1.0"
+	app.Version = "0.1.1"
 	app.Author = "kernel164"
 	app.Usage = "goplay [global options] command"
 	app.Flags = []cli.Flag{
@@ -166,7 +166,7 @@ func main() {
 		if len(parsedCmdConfig.Var_file) > 0 {
 			varfiledata, vioerr := ioutil.ReadFile(expandValue(parsedCmdConfig.Var_file))
 			check(vioerr)
-			args = append(args, "--extra-vars", string(varfiledata))
+			args = append(args, "--extra-vars", expandValue(string(varfiledata)))
 		} else if len(parsedCmdConfig.Vars) > 0 {
 			expandedVarsContent := expandValue(parsedCmdConfig.Vars)
 			args = append(args, "--extra-vars", expandedVarsContent)
