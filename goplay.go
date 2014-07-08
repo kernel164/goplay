@@ -99,11 +99,13 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.StringFlag{"file, f", "play.yml", "play file"},
 		cli.StringFlag{"env-file, e", "env.yml", "env file"},
+		cli.StringSliceFlag{"env, E", &cli.StringSlice{}, "env variables"},
 	}
 	app.Action = func(c *cli.Context) {
 		cmd := c.Args().First()
 		file := c.String("file")
 		efile := c.String("env-file")
+		envVars := c.StringSlice("env")
 
 		// check config file
 		if _, err := os.Stat(file); os.IsNotExist(err) {
@@ -131,6 +133,10 @@ func main() {
 				serr := os.Setenv(fmt.Sprintf("%v", k), fmt.Sprintf("%v", v));
 				check(serr)
 			}
+		}
+		for _,envVal := range envVars {
+			envVals := strings.Split(envVal, "=")
+			os.Setenv(envVals[0], envVals[1]);
 		}
 
 		// read the config file.
