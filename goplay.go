@@ -121,7 +121,7 @@ func main() {
 		check(berr)
 
 		// check env file (use only if present)
-		if _, env_file_err := os.Stat(efile); os.IsExist(env_file_err) {
+		if _, env_file_err := os.Stat(efile); !os.IsNotExist(env_file_err) {
 			envfiledata, envioerr := ioutil.ReadFile(efile)
 			check(envioerr)
 			envmap := make(map[interface{}]interface{})
