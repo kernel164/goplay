@@ -93,15 +93,17 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "goplay"
 	app.Usage = "simple ansible-playbook wrapper"
-	app.Version = "0.1.1"
+	app.Version = "0.1.2"
 	app.Author = "kernel164"
 	app.Usage = "goplay [global options] command"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{"file, f", "play.yml", "play file"},
+		cli.StringFlag{"env-file, e", "env.yml", "env file"},
 	}
 	app.Action = func(c *cli.Context) {
 		cmd := c.Args().First()
 		file := c.String("file")
+		efile := c.String("env-file")
 
 		// check config file
 		if _, err := os.Stat(file); os.IsNotExist(err) {
@@ -117,6 +119,19 @@ func main() {
 		// check ansible-playbook path
 		ansible, berr := exec.LookPath("ansible-playbook")
 		check(berr)
+
+		// check env file (use only if present)
+		if _, env_file_err := os.Stat(efile); os.IsExist(env_file_err) {
+			envfiledata, envioerr := ioutil.ReadFile(efile)
+			check(envioerr)
+			envmap := make(map[interface{}]interface{})
+			envyerr := yaml.Unmarshal([]byte(envfiledata), &envmap)
+			check(envyerr)
+			for k, v := range envmap {
+				serr = os.Setenv(string(k), string(v));
+				check(serr)
+			}
+		}
 
 		// read the config file.
 		filedata, ioerr := ioutil.ReadFile(file)
