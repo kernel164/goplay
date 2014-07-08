@@ -128,7 +128,7 @@ func main() {
 			envyerr := yaml.Unmarshal([]byte(envfiledata), &envmap)
 			check(envyerr)
 			for k, v := range envmap {
-				serr = os.Setenv(string(k), string(v));
+				serr := os.Setenv(fmt.Sprintf("%v", k), fmt.Sprintf("%v", v));
 				check(serr)
 			}
 		}
