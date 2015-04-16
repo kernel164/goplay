@@ -4,7 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"github.com/codegangsta/cli"
+	"gopkg.in/codegangsta/cli.v1"
 	"gopkg.in/yaml.v1"
 	"io/ioutil"
 	"os"
@@ -93,19 +93,21 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "goplay"
 	app.Usage = "simple ansible-playbook wrapper"
-	app.Version = "0.1.2"
-	app.Author = "kernel164"
+	app.Version = "0.1.3"
+	app.Author = "nobody"
 	app.Usage = "goplay [global options] command"
 	app.Flags = []cli.Flag{
-		cli.StringFlag{"file, f", "play.yml", "play file"},
-		cli.StringFlag{"env-file, e", "env.yml", "env file"},
-		cli.StringSliceFlag{"env, E", &cli.StringSlice{}, "env variables"},
+		cli.StringFlag{Name: "file, f", Value: "play.yml", Usage: "play file"},
+		cli.StringFlag{Name: "env-file, e", Value: "env.yml", Usage: "env file"},
+		cli.StringSliceFlag{Name: "env, E", Value: &cli.StringSlice{}, Usage: "env variables"},
+		cli.StringSliceFlag{Name: "tag, T", Value: &cli.StringSlice{}, Usage: "tags"},
 	}
 	app.Action = func(c *cli.Context) {
 		cmd := c.Args().First()
 		file := c.String("file")
 		efile := c.String("env-file")
 		envVars := c.StringSlice("env")
+		tags := c.StringSlice("tag")
 
 		// check config file
 		if _, err := os.Stat(file); os.IsNotExist(err) {
@@ -130,13 +132,14 @@ func main() {
 			envyerr := yaml.Unmarshal([]byte(envfiledata), &envmap)
 			check(envyerr)
 			for k, v := range envmap {
-				serr := os.Setenv(fmt.Sprintf("%v", k), fmt.Sprintf("%v", v));
+				serr := os.Setenv(fmt.Sprintf("%v", k), fmt.Sprintf("%v", v))
 				check(serr)
 			}
 		}
-		for _,envVal := range envVars {
+		for _, envVal := range envVars {
 			envVals := strings.Split(envVal, "=")
-			os.Setenv(envVals[0], envVals[1]);
+			serr := os.Setenv(envVals[0], envVals[1])
+			check(serr)
 		}
 
 		// read the config file.
@@ -185,12 +188,13 @@ func main() {
 		}
 		// --diff
 		if len(parsedCmdConfig.Var_file) > 0 {
-			varfiledata, vioerr := ioutil.ReadFile(expandValue(parsedCmdConfig.Var_file))
-			check(vioerr)
-			args = append(args, "--extra-vars", expandValue(string(varfiledata)))
+			args = append(args, "--extra-vars", "@" + expandValue(parsedCmdConfig.Var_file))
 		} else if len(parsedCmdConfig.Vars) > 0 {
 			expandedVarsContent := expandValue(parsedCmdConfig.Vars)
-			args = append(args, "--extra-vars", expandedVarsContent)
+			tmpVarsFile := newTmpFile(expandedVarsContent, "vars")
+			iwerr := ioutil.WriteFile(tmpVarsFile, []byte(expandedVarsContent), 0644)
+			check(iwerr)
+			args = append(args, "--extra-vars", "@" + tmpVarsFile)
 		}
 		if parsedCmdConfig.Forks > 0 {
 			args = append(args, "--forks", string(parsedCmdConfig.Forks))
@@ -236,6 +240,9 @@ func main() {
 		}
 		if len(parsedCmdConfig.Tags) > 0 {
 			args = append(args, "--tags", expandValue(strings.Join(parsedCmdConfig.Tags, ",")))
+		}
+		if len(tags) > 0 {
+			args = append(args, "--tags", expandValue(strings.Join(tags, ",")))
 		}
 		if parsedCmdConfig.Timeout_in_secs > 0 {
 			args = append(args, "--timeout", string(parsedCmdConfig.Timeout_in_secs))
