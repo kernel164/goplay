@@ -1,3 +1,2 @@
 script:
-  - go get
-  - go build
+  - go install -v -gcflags -N -l ./...

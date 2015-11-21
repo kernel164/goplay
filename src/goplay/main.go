@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -88,18 +89,32 @@ func cleanup() {
 	}
 }
 
+func readEnvFile(path string) {
+	inFile, _ := os.Open(path)
+	defer inFile.Close()
+	scanner := bufio.NewScanner(inFile)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		envVals := strings.Split(scanner.Text(), "=")
+		//fmt.Printf("ENV: %s=%s\n", envVals[0], expandValue(envVals[1]))
+		serr := os.Setenv(envVals[0], expandValue(envVals[1]))
+		check(serr)
+	}
+}
+
 func main() {
 	// defer cleanup()
 	app := cli.NewApp()
 	app.Name = "goplay"
 	app.Usage = "simple ansible-playbook wrapper"
-	app.Version = "0.1.3"
+	app.Version = "0.1.4"
 	app.Author = "nobody"
 	app.Usage = "goplay [global options] command"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{Name: "file, f", Value: "play.yml", Usage: "play file"},
 		cli.StringFlag{Name: "env-file, e", Value: "env.yml", Usage: "env file"},
 		cli.StringSliceFlag{Name: "env, E", Value: &cli.StringSlice{}, Usage: "env variables"},
+		cli.StringSliceFlag{Name: "var, V", Value: &cli.StringSlice{}, Usage: "variables"},
 		cli.StringSliceFlag{Name: "tag, T", Value: &cli.StringSlice{}, Usage: "tags"},
 	}
 	app.Action = func(c *cli.Context) {
@@ -108,6 +123,7 @@ func main() {
 		efile := c.String("env-file")
 		envVars := c.StringSlice("env")
 		tags := c.StringSlice("tag")
+		extraVars := c.StringSlice("var")
 
 		// check config file
 		if _, err := os.Stat(file); os.IsNotExist(err) {
@@ -124,21 +140,30 @@ func main() {
 		ansible, berr := exec.LookPath("ansible-playbook")
 		check(berr)
 
-		// check env file (use only if present)
-		if _, env_file_err := os.Stat(efile); !os.IsNotExist(env_file_err) {
-			envfiledata, envioerr := ioutil.ReadFile(efile)
-			check(envioerr)
-			envmap := make(map[interface{}]interface{})
-			envyerr := yaml.Unmarshal([]byte(envfiledata), &envmap)
-			check(envyerr)
-			for k, v := range envmap {
-				serr := os.Setenv(fmt.Sprintf("%v", k), fmt.Sprintf("%v", v))
-				check(serr)
+		if strings.HasSuffix(efile, ".props") || strings.HasSuffix(efile, ".properties") || strings.HasSuffix(efile, ".env") {
+			readEnvFile(efile)
+		}
+
+		if strings.HasSuffix(efile, ".yml") || strings.HasSuffix(efile, ".yaml") {
+			// check env file (use only if present)
+			if _, env_file_err := os.Stat(efile); !os.IsNotExist(env_file_err) {
+				envfiledata, envioerr := ioutil.ReadFile(efile)
+				check(envioerr)
+				envmap := make(map[interface{}]interface{})
+				envyerr := yaml.Unmarshal([]byte(envfiledata), &envmap)
+				check(envyerr)
+				for k, v := range envmap {
+					fmt.Printf("ENV: %s=%s\n", fmt.Sprintf("%v", k), expandValue(fmt.Sprintf("%v", v)))
+					serr := os.Setenv(fmt.Sprintf("%v", k), expandValue(fmt.Sprintf("%v", v)))
+					check(serr)
+				}
 			}
 		}
+
 		for _, envVal := range envVars {
 			envVals := strings.Split(envVal, "=")
-			serr := os.Setenv(envVals[0], envVals[1])
+			fmt.Printf("ENV: %s=%s\n", envVals[0], expandValue(envVals[1]))
+			serr := os.Setenv(envVals[0], expandValue(envVals[1]))
 			check(serr)
 		}
 
@@ -188,13 +213,17 @@ func main() {
 		}
 		// --diff
 		if len(parsedCmdConfig.Var_file) > 0 {
-			args = append(args, "--extra-vars", "@" + expandValue(parsedCmdConfig.Var_file))
-		} else if len(parsedCmdConfig.Vars) > 0 {
+			args = append(args, "--extra-vars", "@"+expandValue(parsedCmdConfig.Var_file))
+		} 
+		if len(parsedCmdConfig.Vars) > 0 {
 			expandedVarsContent := expandValue(parsedCmdConfig.Vars)
 			tmpVarsFile := newTmpFile(expandedVarsContent, "vars")
 			iwerr := ioutil.WriteFile(tmpVarsFile, []byte(expandedVarsContent), 0644)
 			check(iwerr)
-			args = append(args, "--extra-vars", "@" + tmpVarsFile)
+			args = append(args, "--extra-vars", "@"+tmpVarsFile)
+		}
+		if len(extraVars) > 0 {
+			args = append(args, "--extra-vars", expandValue(strings.Join(extraVars, ",")))
 		}
 		if parsedCmdConfig.Forks > 0 {
 			args = append(args, "--forks", string(parsedCmdConfig.Forks))
@@ -209,7 +238,7 @@ func main() {
 			args = append(args, "--inventory-file", tmpHostsFile)
 		}
 		if len(parsedCmdConfig.Limit) > 0 {
-			args = append(args, "--limit", parsedCmdConfig.Limit)
+			args = append(args, "--limit", expandValue(parsedCmdConfig.Limit))
 		}
 		if len(parsedCmdConfig.Module_path) > 0 {
 			args = append(args, "--module-path", expandValue(parsedCmdConfig.Module_path))
@@ -221,7 +250,7 @@ func main() {
 			args = append(args, "--skip-tags", expandValue(strings.Join(parsedCmdConfig.Skip_tags, ",")))
 		}
 		if len(parsedCmdConfig.Start_at_task) > 0 {
-			args = append(args, "--start-at-task", parsedCmdConfig.Start_at_task)
+			args = append(args, "--start-at-task", expandValue(parsedCmdConfig.Start_at_task))
 		}
 		if parsedCmdConfig.Step {
 			args = append(args, "--step")
@@ -238,11 +267,10 @@ func main() {
 		if len(parsedCmdConfig.Sudo_user) > 0 {
 			args = append(args, "--sudo-user", expandValue(parsedCmdConfig.Sudo_user))
 		}
-		if len(parsedCmdConfig.Tags) > 0 {
-			args = append(args, "--tags", expandValue(strings.Join(parsedCmdConfig.Tags, ",")))
-		}
 		if len(tags) > 0 {
 			args = append(args, "--tags", expandValue(strings.Join(tags, ",")))
+		} else if len(parsedCmdConfig.Tags) > 0 {
+			args = append(args, "--tags", expandValue(strings.Join(parsedCmdConfig.Tags, ",")))
 		}
 		if parsedCmdConfig.Timeout_in_secs > 0 {
 			args = append(args, "--timeout", string(parsedCmdConfig.Timeout_in_secs))
